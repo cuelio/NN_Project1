@@ -59,7 +59,7 @@ class three_layer_NN(object):
         self.W1 = np.random.randn(self.input_layer, self.hidden_layer) / np.sqrt(self.input_layer)
         self.b1 = np.zeros((1, self.hidden_layer))
         self.W2 = np.random.randn(self.hidden_layer, self.output_layer) / np.sqrt(self.hidden_layer)
-        self.b2 = np.zeros((1, self.output_layer))
+        self.b2 = np.random.randn(1, self.output_layer) / np.sqrt(self.output_layer)
 
 
     def actFun(self, a, non_Linearity):
@@ -108,16 +108,17 @@ class three_layer_NN(object):
 
 
     def softmax(self, z):
-
         exp_sum = np.sum(np.exp(z), 1)
         t = np.tile(exp_sum, [2, 1]).T
         out = np.exp(z) * (1 / t)
-
         return out
 
     def diff_softmax(self, z, i, j):
         if(i == j):
-            return
+            return self.probs[i]*(1-self.probs[i])
+        else:
+            return -self.probs[j]*self.probs[i]
+
 
     def ForwardPass(self, X, actFun):
         '''
@@ -177,21 +178,28 @@ class three_layer_NN(object):
         '''
         # IMPLEMENT YOUR BACKPROP HERE
         delta_scores = (self.probs - t)
-        n = len(t)
 
-        dW2 = np.zeros((len(self.W2), len(self.W2[0])))
-        for j in range(0, len(dW2)):
-            for i in range(0, len(dW2[0])):
-                value = 0
-                for n in range(0, n):
-                    value += 0
+        n = len(delta_scores)
 
 
-        db2 = np.zeros((len(self.b2), len(self.b2[0])))
+        dW2 = np.ones((len(self.W2), len(self.W2[0])))
+        dW2 = np.multiply(dW2,sum(delta_scores)/n)
+
+        db2 = np.zeros((1, self.output_layer))
+        db2 = -(sum(delta_scores))/n
+
 
         dW1 = np.zeros((len(self.W1), len(self.W1[0])))
+        deltas_W2 = np.dot(delta_scores, self.W2.T)
+        diffs =self.diff_actFun(self.a1, self.actFun_type)
+        deltas_W2_diff_act = np.multiply(deltas_W2, diffs)
+        dW1 = np.dot(X.T, deltas_W2_diff_act)
+        dW1 = (dW1/n)
 
         db1 = np.zeros((len(self.b1), len(self.b1[0])))
+        deltas_W2 = np.dot(delta_scores, self.W2.T)
+        db1 = np.dot(deltas_W2.T, self.diff_actFun(self.a1, self.actFun_type))
+        db1 = -sum(db1)/n
 
         return dW1, dW2, db1, db2
 
@@ -225,8 +233,8 @@ class three_layer_NN(object):
             # Optionally print the loss.
             # This is expensive because it uses the whole dataset, so we don't want to do it too often.
             if print_loss and i % 1000 == 0:
-                print(self.W2)
-                print("Loss after iteration %i: %f" % (i, self.calculate_loss(X, t)))
+                # print(self.W2)
+                # print("Loss after iteration %i: %f" % (i, self.calculate_loss(X, t)))
                 result = self.calculate_loss(X, t)
                 self.losses.append(result)
         mean = np.mean(self.losses)
@@ -261,14 +269,25 @@ def main():
     plt.xlabel('x1')
     plt.show()
 
-    units = 3
+    units = 5
     act = "sigmoid"
     #act = "tanh"
     #act = "relu"
     model = three_layer_NN(input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
+
+    print(model.W1)
+    print(model.W2)
+    print(model.b1)
+    print(model.b2)
+
     mean, loss = model.fit_model(X, t, 0.01)
     # means.append(mean)
     model.visualize_decision_boundary(X, y)
+
+    print(model.W1)
+    print(model.W2)
+    print(model.b1)
+    print(model.b2)
 
 
 if __name__ == "__main__":
