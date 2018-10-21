@@ -183,11 +183,10 @@ class three_layer_NN(object):
 
 
         dW2 = np.ones((len(self.W2), len(self.W2[0])))
-        dW2 = (np.multiply(dW2,sum(delta_scores)/n))
+        dW2 = (np.multiply(dW2, sum(delta_scores)/n))
 
         db2 = np.zeros((1, self.output_layer))
         db2 = ((sum(delta_scores))/n)
-
 
         dW1 = np.zeros((len(self.W1), len(self.W1[0])))
         deltas_W2 = np.dot(delta_scores, self.W2.T)
@@ -203,7 +202,7 @@ class three_layer_NN(object):
 
         return -dW1, -dW2, -db1, -db2
 
-    def fit_model(self, X, t, epsilon, num_passes=10000, print_loss=True):
+    def fit_model(self, X, t, epsilon, num_passes=20000, print_loss=True):
         '''
         fit_model uses backpropagation to train the network
         :param X: input data
@@ -269,7 +268,7 @@ def main():
     plt.xlabel('x1')
     plt.show()
 
-    units = 3
+    units = 4
     # act = "sigmoid"
     act = "tanh"
     # act = "relu"

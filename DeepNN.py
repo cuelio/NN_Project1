@@ -26,7 +26,6 @@ def plot_decision_boundary(pred_func, X, y):
     plt.show()
 
 
-
 ########################################################################################################################
 # Start coding here.
 ########################################################################################################################
@@ -63,12 +62,17 @@ class n_layer_NN(object):
 
         # initialize the weights and biases in the network
         np.random.seed(seed)
-        self.W1 = np.random.randn(self.input_layer, self.hidden_layer) / np.sqrt(self.input_layer)
-        self.b1 = np.zeros((1, self.hidden_layer))
-        self.W2 = np.random.randn(self.hidden_layer, self.output_layer) / np.sqrt(self.hidden_layer)
-        self.b2 = np.random.randn(1, self.output_layer) / np.sqrt(self.output_layer)
+        self.in_W = np.random.randn(self.input_layer, self.hidden_layer) / np.sqrt(self.input_layer)
+        # self.in_W = np.ones((self.input_layer, self.hidden_layer))
+        # self.b1 = np.zeros((1, self.hidden_layer))
+        self.out_W = np.random.randn(self.hidden_layer, self.output_layer) / np.sqrt(self.hidden_layer)
+        self.out_B = np.random.randn(1, self.output_layer) / np.sqrt(self.output_layer)
 
         ### N-Layers ###
+        self.hidden_W = np.random.randn(self.num_hidden_layers, self.hidden_layer, self.hidden_layer) / np.sqrt(self.num_hidden_layers)
+        self.hidden_Act = np.random.randn(self.num_hidden_layers, 200, self.hidden_layer)
+        self.hidden_B = np.ones((self.num_hidden_layers, self.hidden_layer))
+        self.hidden_A = np.random.randn(self.num_hidden_layers, 200, self.hidden_layer)
 
 
     def actFun(self, a, non_Linearity):
@@ -100,7 +104,7 @@ class n_layer_NN(object):
         '''
         # YOU IMPLEMENT YOUR diff_actFun HERE
         if(non_Linearity == "tanh"):
-            return (1 - np.tanh(a)**2)
+            return (1 - np.tanh(a)*np.tanh(a))
 
         elif(non_Linearity == "relu"):
             if(a > 0):
@@ -139,12 +143,16 @@ class n_layer_NN(object):
         '''
 
         # YOU IMPLEMENT YOUR ForwardPass HERE
-        self.a1 = np.dot(X, self.W1) + self.b1
-        self.act1 = self.actFun(self.a1, self.actFun_type)
-        self.a2 = np.dot(self.act1, self.W2) + self.b2
+        self.a1 = np.dot(X, self.in_W) + self.hidden_B[0]
+        # print(self.actFun(self.a1, self.actFun_type).shape)
+        self.hidden_Act[0] = actFun(self.a1)
+
+        for l in range(0, self.num_hidden_layers-1):
+            self.hidden_A[l+1] = np.dot(self.hidden_Act[l], self.hidden_W[l]) + self.hidden_B[l]
+            self.hidden_Act[l + 1] = actFun(self.hidden_A[l+1])
+
+        self.a2 = np.dot(self.hidden_Act[self.num_hidden_layers - 1], self.out_W) + self.out_B
         self.probs = self.softmax(self.a2)
-
-
 
         return None
 
@@ -156,7 +164,7 @@ class n_layer_NN(object):
         :return: the loss for prediction
         '''
         num_examples = len(X)
-        self.ForwardPass(X, lambda x: self.actFun(x, type=self.actFun_type))
+        self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type))
         # Calculating the loss
 
         # YOU IMPLEMENT YOUR CALCULATION OF THE LOSS HERE
@@ -168,7 +176,6 @@ class n_layer_NN(object):
 
         data_loss = -(1/len(t))*data_loss
         return data_loss
-
 
 
     def predict(self, X):
@@ -188,33 +195,46 @@ class n_layer_NN(object):
         :return: dL/dW1, dL/b1, dL/dW2, dL/db2
         '''
         # IMPLEMENT YOUR BACKPROP HERE
+        # print("PROBS: " + str(self.probs))
         delta_scores = (self.probs - t)
 
         n = len(delta_scores)
 
+        d_out_W = np.zeros((len(self.out_W), len(self.out_W[0])))
+        d_out_W = (np.multiply(d_out_W, sum(delta_scores)))/n
 
-        dW2 = np.ones((len(self.W2), len(self.W2[0])))
-        dW2 = (np.multiply(dW2,sum(delta_scores)/n))
+        d_out_B = np.zeros((1, self.output_layer))
+        d_out_B = sum(delta_scores)/n
 
-        db2 = np.zeros((1, self.output_layer))
-        db2 = ((sum(delta_scores))/n)
+        dH = np.zeros((self.num_hidden_layers, self.hidden_layer, self.hidden_layer))
+        dHb = np.zeros((self.num_hidden_layers, self.hidden_layer))
 
+        dH_temp = np.ones((self.num_hidden_layers, self.hidden_layer, self.hidden_layer))
 
-        dW1 = np.zeros((len(self.W1), len(self.W1[0])))
-        deltas_W2 = np.dot(delta_scores, self.W2.T)
-        diffs = self.diff_actFun(self.a1, self.actFun_type)
-        deltas_W2_diff_act = np.multiply(deltas_W2, diffs)
-        dW1 = np.dot(X.T, deltas_W2_diff_act)
-        dW1 = (dW1/n)
+        for i in range(0, self.num_hidden_layers):
+            # start from rightmost layer and move to the left
+            index = self.num_hidden_layers - i - 1
+            if(index == self.num_hidden_layers - 1):
+                dH[index] = np.dot(sum(delta_scores)/n, self.out_W.T)
+                dH_temp[index] = dH[index]
 
-        db1 = np.zeros((len(self.b1), len(self.b1[0])))
-        deltas_W2 = np.dot(delta_scores, self.W2.T)
-        db1 = np.dot(deltas_W2.T, self.diff_actFun(self.a1, self.actFun_type))
-        db1 = (sum(db1)/n)
+                dHb[index] = sum(np.dot(dH_temp[index], self.diff_actFun(self.hidden_A[index], self.actFun_type).T).T)
+            else:
+                temp1 = np.dot(dH_temp[index+1], self.hidden_W[index])
+                dH_temp[index] = temp1
+                temp2 = np.dot(self.diff_actFun(self.hidden_A[index], self.actFun_type).T, self.hidden_A[index-1])
+                dH[index] = np.dot(temp1, temp2)
 
-        return -dW1, -dW2, -db1, -db2
+                dHb[index] = sum(np.dot(temp1, self.diff_actFun(self.hidden_A[index], self.actFun_type).T).T)
 
-    def fit_model(self, X, t, epsilon, num_passes=10000, print_loss=True):
+        d_in_W = np.zeros((len(self.in_W), len(self.in_W[0])))
+        temp1 = np.dot(dH_temp[0], self.in_W.T)
+        temp2 = np.dot(X.T, self.diff_actFun(self.a1, self.actFun_type))
+        d_in_W = np.multiply(temp1.T, temp2)
+
+        return d_in_W, d_out_W, d_out_B, dH, dHb
+
+    def fit_model(self, X, t, epsilon, num_passes=15000, print_loss=True):
         '''
         fit_model uses backpropagation to train the network
         :param X: input data
@@ -224,22 +244,26 @@ class n_layer_NN(object):
         :return:
         '''
         # Gradient descent implementation
-        for i in range(0, num_passes):
+        for i in range(0, num_passes+1):
 
             # Forward propagation
-            self.ForwardPass(X, lambda x: self.actFun(x, type=self.actFun_type))
+            self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type))
             # Backpropagation
-            dW1, dW2, db1, db2 = self.backwardPass(X, t)
+            dW1, dW2, db2, dH, dHb = self.backwardPass(X, t)
 
             # Add regularization terms (b1 and b2 don't have regularization terms)
-            dW2 += self.reg_lambda * self.W2
-            dW1 += self.reg_lambda * self.W1
+            dW2 += self.reg_lambda * self.out_W
+            dW1 += self.reg_lambda * self.in_W
+
+            dH += self.reg_lambda * self.hidden_W
+
+            self.hidden_W += -epsilon * dH
+            self.hidden_B += -epsilon * dHb
 
             # Gradient descent parameter update
-            self.W1 += epsilon * dW1
-            self.b1 += epsilon * db1
-            self.W2 += epsilon * dW2
-            self.b2 += epsilon * db2
+            self.in_W += -epsilon * dW1
+            self.out_W += -epsilon * dW2
+            self.out_B += -epsilon * db2
 
             # Optionally print the loss.
             # This is expensive because it uses the whole dataset, so we don't want to do it too often.
@@ -248,8 +272,7 @@ class n_layer_NN(object):
                 result = self.calculate_loss(X, t)
                 self.losses.append(result)
         mean = np.mean(self.losses)
-        # print(self.probs)
-
+        print(self.probs)
         return mean, self.losses
 
     def visualize_decision_boundary(self, X, y):
@@ -288,7 +311,7 @@ def main():
 
     mean, loss = model.fit_model(X, t, 0.01)
     # means.append(mean)
-    model.visualize_decision_boundary(X, y)
+    # model.visualize_decision_boundary(X, y)
 
 
 if __name__ == "__main__":
