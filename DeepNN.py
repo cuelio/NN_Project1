@@ -3,7 +3,6 @@ from sklearn import datasets
 import matplotlib.pyplot as plt
 import math
 
-
 def plot_decision_boundary(pred_func, X, y):
     '''
     plot the decision boundary
@@ -32,12 +31,18 @@ def plot_decision_boundary(pred_func, X, y):
 # Start coding here.
 ########################################################################################################################
 
-class three_layer_NN(object):
+
+
+
+
+
+
+class n_layer_NN(object):
     """
     This class builds and trains a neural network
     """
 
-    def __init__(self, input_layer, hidden_layer, output_layer, actFun_type='tanh', reg_lambda=0.01, seed=10):
+    def __init__(self, num_hidden_layers, input_layer, hidden_layer, output_layer, actFun_type='tanh', reg_lambda=0.01, seed=10):
         '''
         :param nn_input_dim: input dimension
         :param nn_hidden_dim: the number of hidden units
@@ -46,6 +51,8 @@ class three_layer_NN(object):
         :param reg_lambda: regularization coefficient
         :param seed: random seed
         '''
+
+        self.num_hidden_layers = num_hidden_layers
         self.input_layer = input_layer
         self.hidden_layer = hidden_layer
         self.output_layer = output_layer
@@ -60,6 +67,8 @@ class three_layer_NN(object):
         self.b1 = np.zeros((1, self.hidden_layer))
         self.W2 = np.random.randn(self.hidden_layer, self.output_layer) / np.sqrt(self.hidden_layer)
         self.b2 = np.random.randn(1, self.output_layer) / np.sqrt(self.output_layer)
+
+        ### N-Layers ###
 
 
     def actFun(self, a, non_Linearity):
@@ -134,6 +143,8 @@ class three_layer_NN(object):
         self.act1 = self.actFun(self.a1, self.actFun_type)
         self.a2 = np.dot(self.act1, self.W2) + self.b2
         self.probs = self.softmax(self.a2)
+
+
 
         return None
 
@@ -251,7 +262,6 @@ class three_layer_NN(object):
         plot_decision_boundary(lambda x: self.predict(x), X, y)
 
 
-
 def main():
     # # generate and visualize Make-Moons dataset
     np.random.seed(0)
@@ -270,10 +280,11 @@ def main():
     plt.show()
 
     units = 3
+    layers = 2
     # act = "sigmoid"
     act = "tanh"
     # act = "relu"
-    model = three_layer_NN(input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
+    model = n_layer_NN(num_hidden_layers = layers, input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
 
     mean, loss = model.fit_model(X, t, 0.01)
     # means.append(mean)
@@ -282,5 +293,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
