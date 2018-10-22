@@ -179,30 +179,25 @@ class three_layer_NN(object):
         # IMPLEMENT YOUR BACKPROP HERE
         delta_scores = (self.probs - t)
 
-        n = len(delta_scores)
-
-
-        dW2 = np.ones((len(self.W2), len(self.W2[0])))
-        dW2 = (np.multiply(dW2, sum(delta_scores)/n))
+        # update output layer bias/weights
+        dW2 = np.zeros((len(self.W2), len(self.W2[0])))
+        dW2 = np.dot(self.a1.T, delta_scores)
 
         db2 = np.zeros((1, self.output_layer))
-        db2 = ((sum(delta_scores))/n)
+        db2 = np.sum(delta_scores, axis=0)
+
+        # update hidden layer bias/weights
+        temp_d = np.dot(delta_scores, self.W2.T) * self.diff_actFun(self.a1, self.actFun_type)
 
         dW1 = np.zeros((len(self.W1), len(self.W1[0])))
-        deltas_W2 = np.dot(delta_scores, self.W2.T)
-        diffs = self.diff_actFun(self.a1, self.actFun_type)
-        deltas_W2_diff_act = np.multiply(deltas_W2, diffs)
-        dW1 = np.dot(X.T, deltas_W2_diff_act)
-        dW1 = (dW1/n)
+        dW1 = np.dot(X.T, temp_d)
 
         db1 = np.zeros((len(self.b1), len(self.b1[0])))
-        deltas_W2 = np.dot(delta_scores, self.W2.T)
-        db1 = np.dot(deltas_W2.T, self.diff_actFun(self.a1, self.actFun_type))
-        db1 = (sum(db1)/n)
+        db1 = np.sum(temp_d, axis=0)
 
-        return -dW1, -dW2, -db1, -db2
+        return dW1, dW2, db1, db2
 
-    def fit_model(self, X, t, epsilon, num_passes=20000, print_loss=True):
+    def fit_model(self, X, t, epsilon, num_passes=15000, print_loss=True):
         '''
         fit_model uses backpropagation to train the network
         :param X: input data
@@ -224,10 +219,10 @@ class three_layer_NN(object):
             dW1 += self.reg_lambda * self.W1
 
             # Gradient descent parameter update
-            self.W1 += epsilon * dW1
-            self.b1 += epsilon * db1
-            self.W2 += epsilon * dW2
-            self.b2 += epsilon * db2
+            self.W1 += -epsilon * dW1
+            self.b1 += -epsilon * db1
+            self.W2 += -epsilon * dW2
+            self.b2 += -epsilon * db2
 
             # Optionally print the loss.
             # This is expensive because it uses the whole dataset, so we don't want to do it too often.
@@ -236,7 +231,7 @@ class three_layer_NN(object):
                 result = self.calculate_loss(X, t)
                 self.losses.append(result)
         mean = np.mean(self.losses)
-        # print(self.probs)
+        print(self.probs)
 
         return mean, self.losses
 
@@ -268,7 +263,7 @@ def main():
     plt.xlabel('x1')
     plt.show()
 
-    units = 4
+    units = 50
     # act = "sigmoid"
     act = "tanh"
     # act = "relu"
