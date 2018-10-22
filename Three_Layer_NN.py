@@ -131,7 +131,7 @@ class three_layer_NN(object):
 
         # YOU IMPLEMENT YOUR ForwardPass HERE
         self.a1 = np.dot(X, self.W1) + self.b1
-        self.act1 = self.actFun(self.a1, self.actFun_type)
+        self.act1 = actFun(self.a1)
         self.a2 = np.dot(self.act1, self.W2) + self.b2
         self.probs = self.softmax(self.a2)
 
@@ -145,7 +145,7 @@ class three_layer_NN(object):
         :return: the loss for prediction
         '''
         num_examples = len(X)
-        self.ForwardPass(X, lambda x: self.actFun(x, type=self.actFun_type))
+        self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type))
         # Calculating the loss
 
         # YOU IMPLEMENT YOUR CALCULATION OF THE LOSS HERE
@@ -207,10 +207,10 @@ class three_layer_NN(object):
         :return:
         '''
         # Gradient descent implementation
-        for i in range(0, num_passes):
+        for i in range(0, num_passes+1):
 
             # Forward propagation
-            self.ForwardPass(X, lambda x: self.actFun(x, type=self.actFun_type))
+            self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type))
             # Backpropagation
             dW1, dW2, db1, db2 = self.backwardPass(X, t)
 
@@ -263,7 +263,7 @@ def main():
     plt.xlabel('x1')
     plt.show()
 
-    units = 5
+    units = 3
     # act = "sigmoid"
     act = "tanh"
     # act = "relu"

@@ -69,7 +69,7 @@ class n_layer_NN(object):
         self.out_B = np.random.randn(1, self.output_layer) / np.sqrt(self.output_layer)
 
         ### N-Layers ###
-        self.hidden_W = np.random.randn(self.num_hidden_layers, self.hidden_layer, self.hidden_layer) / np.sqrt(self.num_hidden_layers)
+        self.hidden_W = np.random.randn(self.num_hidden_layers-1, self.hidden_layer, self.hidden_layer) / np.sqrt(self.num_hidden_layers)
         self.hidden_Act = np.random.randn(self.num_hidden_layers, 200, self.hidden_layer)
         self.hidden_B = np.ones((self.num_hidden_layers, self.hidden_layer))
         self.hidden_A = np.random.randn(self.num_hidden_layers, 200, self.hidden_layer)
@@ -144,7 +144,7 @@ class n_layer_NN(object):
 
         # YOU IMPLEMENT YOUR ForwardPass HERE
         self.a1 = np.dot(X, self.in_W) + self.hidden_B[0]
-        # print(self.actFun(self.a1, self.actFun_type).shape)
+        self.hidden_A[0] = self.a1
         self.hidden_Act[0] = actFun(self.a1)
 
         for l in range(0, self.num_hidden_layers-1):
@@ -152,6 +152,7 @@ class n_layer_NN(object):
             self.hidden_Act[l + 1] = actFun(self.hidden_A[l+1])
 
         self.a2 = np.dot(self.hidden_Act[self.num_hidden_layers - 1], self.out_W) + self.out_B
+
         self.probs = self.softmax(self.a2)
 
         return None
@@ -198,42 +199,43 @@ class n_layer_NN(object):
         # print("PROBS: " + str(self.probs))
         delta_scores = (self.probs - t)
 
-        # update output layer bias/weights
-        d_out_W = np.zeros((len(self.out_W), len(self.out_W[0])))
-        d_out_W = np.dot(self.a1.T, delta_scores)
+        dH = np.zeros((self.num_hidden_layers - 1, self.hidden_layer, self.hidden_layer))
+        dHb = np.zeros((self.num_hidden_layers, self.hidden_layer))
+        dH_temp = np.zeros((len(t), self.hidden_layer))
 
-        d_out_B = np.zeros((1, self.output_layer))
+        # update output layer bias/weights
+
+        d_out_W = np.dot(self.hidden_Act[self.num_hidden_layers-1].T, delta_scores)
+
         d_out_B = np.sum(delta_scores, axis=0)
 
-        dH = np.zeros((self.num_hidden_layers, self.hidden_layer, self.hidden_layer))
-        dHb = np.zeros((self.num_hidden_layers, self.hidden_layer))
+        if(self.num_hidden_layers == 1):
+            dH_temp = np.dot(delta_scores, self.out_W.T) * self.diff_actFun(self.a1, self.actFun_type)
+            dHb[0] = np.sum(dH_temp, axis=0)
+        else:
+            for i in range(0, self.num_hidden_layers-1):
+                # start from rightmost layer and move to the left
+                index = self.num_hidden_layers - i - 1
+                if(index == self.num_hidden_layers - 1):
+                    dH_temp = np.dot(delta_scores, self.out_W.T) * self.diff_actFun(self.hidden_A[index], self.actFun_type)
+                    dH[index-1] = np.dot(dH_temp.T, self.hidden_Act[index-1])
+                    dHb[index] = np.sum(dH_temp, axis=0)
 
-        dH_temp = np.zeros((self.num_hidden_layers, self.hidden_layer, self.hidden_layer))
+                else:
+                    dH_temp = np.dot(dH_temp, self.hidden_W[index]) * self.diff_actFun(self.hidden_A[index], self.actFun_type)
+                    dH[index-1] = np.dot(dH_temp.T, self.hidden_Act[index-1])
+                    dHb[index] = np.sum(dH_temp, axis=0)
 
-        # for i in range(0, self.num_hidden_layers):
-        #     # start from rightmost layer and move to the left
-        #     index = self.num_hidden_layers - i - 1
-        #     if(index == self.num_hidden_layers - 1):
-        #         dH[index] = np.dot(sum(delta_scores), self.out_W.T)
-        #         dH_temp[index] = dH[index]
-        #
-        #         dHb[index] = sum(np.dot(dH_temp[index], self.diff_actFun(self.hidden_A[index], self.actFun_type).T).T)
-        #     else:
-        #         temp1 = np.dot(dH_temp[index+1], self.hidden_W[index])
-        #         dH_temp[index] = temp1
-        #         temp2 = np.dot(self.diff_actFun(self.hidden_A[index], self.actFun_type).T, self.hidden_A[index-1])
-        #         dH[index] = np.dot(temp1, temp2)
-        #
-        #         dHb[index] = sum(np.dot(temp1, self.diff_actFun(self.hidden_A[index], self.actFun_type).T).T)
-        #
-        d_in_W = np.zeros((len(self.in_W), len(self.in_W[0])))
-        # temp1 = np.dot(dH_temp[0], self.in_W.T)
-        # temp2 = np.dot(X.T, self.diff_actFun(self.a1, self.actFun_type))
-        # d_in_W = np.multiply(temp1.T, temp2)
+            dHb[0] = np.sum(dH_temp, axis=0)
+
+        if(self.num_hidden_layers > 1):
+            dH_temp = np.dot(dH_temp, self.hidden_W[0]) * self.diff_actFun(self.a1, self.actFun_type)
+
+        d_in_W = np.dot(X.T, dH_temp)
 
         return d_in_W, d_out_W, d_out_B, dH, dHb
 
-    def fit_model(self, X, t, epsilon, num_passes=15000, print_loss=True):
+    def fit_model(self, X, t, epsilon, num_passes=14000, print_loss=True):
         '''
         fit_model uses backpropagation to train the network
         :param X: input data
@@ -248,20 +250,21 @@ class n_layer_NN(object):
             # Forward propagation
             self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type))
             # Backpropagation
-            dW1, dW2, db2, dH, dHb = self.backwardPass(X, t)
+            d_in_W, d_out_W, db2, dH, dHb = self.backwardPass(X, t)
 
             # Add regularization terms (b1 and b2 don't have regularization terms)
-            dW2 += self.reg_lambda * self.out_W
-            dW1 += self.reg_lambda * self.in_W
+            d_out_W += self.reg_lambda * self.out_W
+            d_in_W += self.reg_lambda * self.in_W
 
-            dH += self.reg_lambda * self.hidden_W
+            if(len(dH) > 0):
+                dH += self.reg_lambda * self.hidden_W
+                self.hidden_W += -epsilon * dH
 
-            self.hidden_W += -epsilon * dH
             self.hidden_B += -epsilon * dHb
 
             # Gradient descent parameter update
-            self.in_W += -epsilon * dW1
-            self.out_W += -epsilon * dW2
+            self.in_W += -epsilon * d_in_W
+            self.out_W += -epsilon * d_out_W
             self.out_B += -epsilon * db2
 
             # Optionally print the loss.
@@ -271,7 +274,9 @@ class n_layer_NN(object):
                 result = self.calculate_loss(X, t)
                 self.losses.append(result)
         mean = np.mean(self.losses)
-        print(self.probs)
+
+        for i in range(0, 200):
+            print(str(self.probs[i]) + ", " + str(t[i]))
         return mean, self.losses
 
     def visualize_decision_boundary(self, X, y):
@@ -302,7 +307,7 @@ def main():
     plt.show()
 
     units = 3
-    layers = 2
+    layers = 1
     # act = "sigmoid"
     act = "tanh"
     # act = "relu"
