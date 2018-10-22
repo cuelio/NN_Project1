@@ -181,7 +181,7 @@ class three_layer_NN(object):
 
         # update output layer bias/weights
         dW2 = np.zeros((len(self.W2), len(self.W2[0])))
-        dW2 = np.dot(self.a1.T, delta_scores)
+        dW2 = np.dot(self.act1.T, delta_scores)
 
         db2 = np.zeros((1, self.output_layer))
         db2 = np.sum(delta_scores, axis=0)
@@ -263,7 +263,7 @@ def main():
     plt.xlabel('x1')
     plt.show()
 
-    units = 50
+    units = 5
     # act = "sigmoid"
     act = "tanh"
     # act = "relu"

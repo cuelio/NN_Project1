@@ -198,39 +198,38 @@ class n_layer_NN(object):
         # print("PROBS: " + str(self.probs))
         delta_scores = (self.probs - t)
 
-        n = len(delta_scores)
-
+        # update output layer bias/weights
         d_out_W = np.zeros((len(self.out_W), len(self.out_W[0])))
-        d_out_W = (np.multiply(d_out_W, sum(delta_scores)))/n
+        d_out_W = np.dot(self.a1.T, delta_scores)
 
         d_out_B = np.zeros((1, self.output_layer))
-        d_out_B = sum(delta_scores)/n
+        d_out_B = np.sum(delta_scores, axis=0)
 
         dH = np.zeros((self.num_hidden_layers, self.hidden_layer, self.hidden_layer))
         dHb = np.zeros((self.num_hidden_layers, self.hidden_layer))
 
-        dH_temp = np.ones((self.num_hidden_layers, self.hidden_layer, self.hidden_layer))
+        dH_temp = np.zeros((self.num_hidden_layers, self.hidden_layer, self.hidden_layer))
 
-        for i in range(0, self.num_hidden_layers):
-            # start from rightmost layer and move to the left
-            index = self.num_hidden_layers - i - 1
-            if(index == self.num_hidden_layers - 1):
-                dH[index] = np.dot(sum(delta_scores)/n, self.out_W.T)
-                dH_temp[index] = dH[index]
-
-                dHb[index] = sum(np.dot(dH_temp[index], self.diff_actFun(self.hidden_A[index], self.actFun_type).T).T)
-            else:
-                temp1 = np.dot(dH_temp[index+1], self.hidden_W[index])
-                dH_temp[index] = temp1
-                temp2 = np.dot(self.diff_actFun(self.hidden_A[index], self.actFun_type).T, self.hidden_A[index-1])
-                dH[index] = np.dot(temp1, temp2)
-
-                dHb[index] = sum(np.dot(temp1, self.diff_actFun(self.hidden_A[index], self.actFun_type).T).T)
-
+        # for i in range(0, self.num_hidden_layers):
+        #     # start from rightmost layer and move to the left
+        #     index = self.num_hidden_layers - i - 1
+        #     if(index == self.num_hidden_layers - 1):
+        #         dH[index] = np.dot(sum(delta_scores), self.out_W.T)
+        #         dH_temp[index] = dH[index]
+        #
+        #         dHb[index] = sum(np.dot(dH_temp[index], self.diff_actFun(self.hidden_A[index], self.actFun_type).T).T)
+        #     else:
+        #         temp1 = np.dot(dH_temp[index+1], self.hidden_W[index])
+        #         dH_temp[index] = temp1
+        #         temp2 = np.dot(self.diff_actFun(self.hidden_A[index], self.actFun_type).T, self.hidden_A[index-1])
+        #         dH[index] = np.dot(temp1, temp2)
+        #
+        #         dHb[index] = sum(np.dot(temp1, self.diff_actFun(self.hidden_A[index], self.actFun_type).T).T)
+        #
         d_in_W = np.zeros((len(self.in_W), len(self.in_W[0])))
-        temp1 = np.dot(dH_temp[0], self.in_W.T)
-        temp2 = np.dot(X.T, self.diff_actFun(self.a1, self.actFun_type))
-        d_in_W = np.multiply(temp1.T, temp2)
+        # temp1 = np.dot(dH_temp[0], self.in_W.T)
+        # temp2 = np.dot(X.T, self.diff_actFun(self.a1, self.actFun_type))
+        # d_in_W = np.multiply(temp1.T, temp2)
 
         return d_in_W, d_out_W, d_out_B, dH, dHb
 
