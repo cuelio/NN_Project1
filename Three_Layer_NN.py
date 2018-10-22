@@ -73,7 +73,14 @@ class three_layer_NN(object):
             return np.tanh(a)
 
         elif(non_Linearity == "relu"):
-            return max(0,a)
+            list = np.zeros((len(a),len(a[0])))
+            for i in range(0, len(a)):
+                for j in range(0, len(a[0])):
+                    if(a[i][j] > 0):
+                        list[i][j] = a[i][j]
+                    else:
+                        list[i][j] = 0
+            return list
 
         elif(non_Linearity == "sigmoid"):
             e_x = math.e**a
@@ -94,10 +101,14 @@ class three_layer_NN(object):
             return (1 - np.tanh(a)**2)
 
         elif(non_Linearity == "relu"):
-            if(a > 0):
-                return 1
-            else:
-                return 0
+            list = np.zeros((len(a), len(a[0])))
+            for i in range(0, len(a)):
+                for j in range(0, len(a[0])):
+                    if(a[i][j] > 0):
+                        list[i][j] = 1
+                    else:
+                        list[i][j] = 0
+            return list
 
         elif(non_Linearity == "sigmoid"):
             act = self.actFun(a, "sigmoid")
@@ -263,10 +274,10 @@ def main():
     plt.xlabel('x1')
     plt.show()
 
-    units = 3
+    units = 5
     # act = "sigmoid"
-    act = "tanh"
-    # act = "relu"
+    # act = "tanh"
+    act = "relu"
     model = three_layer_NN(input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
 
     mean, loss = model.fit_model(X, t, 0.01)

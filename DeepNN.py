@@ -63,8 +63,7 @@ class n_layer_NN(object):
         # initialize the weights and biases in the network
         np.random.seed(seed)
         self.in_W = np.random.randn(self.input_layer, self.hidden_layer) / np.sqrt(self.input_layer)
-        # self.in_W = np.ones((self.input_layer, self.hidden_layer))
-        # self.b1 = np.zeros((1, self.hidden_layer))
+
         self.out_W = np.random.randn(self.hidden_layer, self.output_layer) / np.sqrt(self.hidden_layer)
         self.out_B = np.random.randn(1, self.output_layer) / np.sqrt(self.output_layer)
 
@@ -73,7 +72,6 @@ class n_layer_NN(object):
         self.hidden_Act = np.random.randn(self.num_hidden_layers, 200, self.hidden_layer)
         self.hidden_B = np.ones((self.num_hidden_layers, self.hidden_layer))
         self.hidden_A = np.random.randn(self.num_hidden_layers, 200, self.hidden_layer)
-
 
     def actFun(self, a, non_Linearity):
         '''
@@ -308,8 +306,8 @@ def main():
 
     units = 3
     layers = 1
-    # act = "sigmoid"
-    act = "tanh"
+    act = "sigmoid"
+    # act = "tanh"
     # act = "relu"
     model = n_layer_NN(num_hidden_layers = layers, input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
 
