@@ -57,7 +57,7 @@ class three_layer_NN(object):
         # initialize the weights and biases in the network
         np.random.seed(seed)
         self.W1 = np.random.randn(self.input_layer, self.hidden_layer) / np.sqrt(self.input_layer)
-        self.b1 = np.zeros((1, self.hidden_layer))
+        self.b1 = np.random.randn(1, self.hidden_layer) / np.sqrt(self.output_layer)
         self.W2 = np.random.randn(self.hidden_layer, self.output_layer) / np.sqrt(self.hidden_layer)
         self.b2 = np.random.randn(1, self.output_layer) / np.sqrt(self.output_layer)
 
@@ -142,6 +142,7 @@ class three_layer_NN(object):
 
         # YOU IMPLEMENT YOUR ForwardPass HERE
         self.a1 = np.dot(X, self.W1) + self.b1
+        print(self.a1.shape)
         self.act1 = actFun(self.a1)
         self.a2 = np.dot(self.act1, self.W2) + self.b2
         self.probs = self.softmax(self.a2)
@@ -280,7 +281,7 @@ def main():
     act = "relu"
     model = three_layer_NN(input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
 
-    mean, loss = model.fit_model(X, t, 0.01)
+    # mean, loss = model.fit_model(X, t, 0.01)
     # means.append(mean)
     model.visualize_decision_boundary(X, y)
 
