@@ -69,9 +69,9 @@ class n_layer_NN(object):
 
         ### N-Layers ###
         self.hidden_W = np.random.randn(self.num_hidden_layers-1, self.hidden_layer, self.hidden_layer) / np.sqrt(self.hidden_layer)
-        self.hidden_Act = np.zeros((self.num_hidden_layers, 200, self.hidden_layer))
+        self.hidden_Act = np.zeros((self.num_hidden_layers, 569, self.hidden_layer))
         self.hidden_B = np.zeros((self.num_hidden_layers, self.hidden_layer))
-        self.hidden_A = np.zeros((self.num_hidden_layers, 200, self.hidden_layer))
+        self.hidden_A = np.zeros((self.num_hidden_layers, 569, self.hidden_layer))
 
     def actFun(self, a, non_Linearity):
         '''
@@ -124,14 +124,8 @@ class n_layer_NN(object):
         out = np.exp(z) * (1 / t)
         return out
 
-    def diff_softmax(self, z, i, j):
-        if(i == j):
-            return self.probs[i]*(1-self.probs[i])
-        else:
-            return -self.probs[j]*self.probs[i]
 
-
-    def ForwardPass(self, X, actFun):
+    def ForwardPass(self, X, actFun, calledFromPredict):
         '''
         feedforward builds a 3-layer neural network and computes the two probabilities,
         one for class 0 and one for class 1
@@ -140,16 +134,24 @@ class n_layer_NN(object):
         :return:
         '''
 
-        # YOU IMPLEMENT YOUR ForwardPass HERE
         self.a1 = np.dot(X, self.in_W) + self.hidden_B[0]
-        self.hidden_A[0] = self.a1
-        self.hidden_Act[0] = actFun(self.a1)
+        self.act1 = actFun(self.a1)
 
-        for l in range(0, self.num_hidden_layers-1):
-            self.hidden_A[l+1] = np.dot(self.hidden_Act[l], self.hidden_W[l]) + self.hidden_B[l+1]
-            self.hidden_Act[l + 1] = actFun(self.hidden_A[l+1])
+        if(calledFromPredict == False):
+            self.hidden_A[0] = self.a1
+            self.hidden_Act[0] = actFun(self.a1)
 
-        self.a2 = np.dot(self.hidden_Act[self.num_hidden_layers - 1], self.out_W) + self.out_B
+            for l in range(0, self.num_hidden_layers-1):
+                self.hidden_A[l+1] = np.dot(self.hidden_Act[l], self.hidden_W[l]) + self.hidden_B[l+1]
+                self.hidden_Act[l + 1] = actFun(self.hidden_A[l+1])
+            self.a2 = np.dot(self.hidden_Act[self.num_hidden_layers - 1], self.out_W) + self.out_B
+        else:
+            actTemp = self.act1
+            for l in range(0, self.num_hidden_layers-1):
+                actTemp = actFun(np.dot(actTemp, self.hidden_W[l]) + self.hidden_B[l+1])
+
+            self.a2 = np.dot(actTemp, self.out_W) + self.out_B
+
         self.probs = self.softmax(self.a2)
 
         return None
@@ -162,9 +164,8 @@ class n_layer_NN(object):
         :return: the loss for prediction
         '''
         num_examples = len(X)
-        self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type))
+        self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type), False)
         # Calculating the loss
-
         # YOU IMPLEMENT YOUR CALCULATION OF THE LOSS HERE
 
         data_loss = 0
@@ -182,7 +183,7 @@ class n_layer_NN(object):
         :param X: input data
         :return: label inferred
         '''
-        self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type))
+        self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type), True)
         return np.argmax(self.probs, axis=1)
 
     def backwardPass(self, X, t):
@@ -195,46 +196,41 @@ class n_layer_NN(object):
         # IMPLEMENT YOUR BACKPROP HERE
         delta_scores = (self.probs - t)
 
-        dH = np.ones((self.num_hidden_layers - 1, self.hidden_layer, self.hidden_layer))
-        dHb = np.ones((self.num_hidden_layers, self.hidden_layer))
-        dH_temp = np.ones((len(t), self.hidden_layer))
+        dH = np.zeros((self.num_hidden_layers - 1, self.hidden_layer, self.hidden_layer))
+        dHb = np.zeros((self.num_hidden_layers, self.hidden_layer))
+        dH_temp = None
 
         # update output layer bias/weights
 
-        d_out_W = np.dot(self.hidden_Act[self.num_hidden_layers-1].T, delta_scores)
+        d_out_W = np.dot(self.hidden_Act[self.num_hidden_layers-1].T, delta_scores)/len(t)
+        d_out_B = np.sum(delta_scores, axis=0)/(len(t))
 
-        d_out_B = np.sum(delta_scores, axis=0)
+        if(self.num_hidden_layers == 1):
+            dH_temp = np.dot(delta_scores, self.out_W.T) * self.diff_actFun(self.a1, self.actFun_type)
+            dHb[0] = np.sum(dH_temp, axis=0)
+        else:
+            for i in range(0, self.num_hidden_layers-1):
+                # start from rightmost layer and move to the left
+                index = self.num_hidden_layers - i - 1
+                if(index == self.num_hidden_layers - 1):
+                    dH_temp = np.dot(delta_scores, self.out_W.T) * self.diff_actFun(self.hidden_A[index], self.actFun_type)
+                    dH[index-1] = np.dot(dH_temp.T, self.hidden_Act[index-1])/len(t)
+                    dHb[index] = np.sum(dH_temp, axis=0)/len(t)
 
-        # if(self.num_hidden_layers == 1):
-        #     dH_temp = np.dot(delta_scores, self.out_W.T) * self.diff_actFun(self.a1, self.actFun_type)
-        #     dHb[0] = np.sum(dH_temp, axis=0)
-        # else:
-        for i in range(0, self.num_hidden_layers-1):
-            # start from rightmost layer and move to the left
-            index = self.num_hidden_layers - i - 1
-            # print(index)
-            if(index == self.num_hidden_layers - 1):
-                dH_temp = np.dot(delta_scores, self.out_W.T) * self.diff_actFun(self.hidden_A[index], self.actFun_type)
-                dH[index-1] = np.dot(dH_temp.T, self.hidden_Act[index-1])
-
-            else:
-                dH_temp = np.dot(dH_temp, self.hidden_W[index]) * self.diff_actFun(self.hidden_A[index], self.actFun_type)
-                dH[index-1] = np.dot(dH_temp.T, self.hidden_Act[index-1])
-
-            dHb[index] = np.sum(dH_temp, axis=0)
+                else:
+                    dH_temp = np.dot(dH_temp, self.hidden_W[index]) * self.diff_actFun(self.hidden_A[index], self.actFun_type)
+                    dH[index-1] = np.dot(dH_temp.T, self.hidden_Act[index-1])/len(t)
+                    dHb[index] = np.sum(dH_temp, axis=0)/len(t)
 
 
-        dH_temp = np.dot(dH_temp, self.hidden_W[0]) * self.diff_actFun(self.hidden_A[0], self.actFun_type)
-        dHb[0] = np.sum(dH_temp, axis=0)
+            dH_temp = np.dot(dH_temp, self.hidden_W[0]) * self.diff_actFun(self.hidden_A[0], self.actFun_type)
+            dHb[0] = np.sum(dH_temp, axis=0)/len(t)
 
-        # if(self.num_hidden_layers > 1):
-        # dH_temp = np.dot(dH_temp, self.hidden_W[0]) * self.diff_actFun(self.hidden_A[0], self.actFun_type)
-
-        d_in_W = np.dot(X.T, dH_temp)
+        d_in_W = np.dot(X.T, dH_temp)/len(t)
 
         return d_in_W, d_out_W, d_out_B, dH, dHb
 
-    def fit_model(self, X, t, epsilon, num_passes=50000, print_loss=True):
+    def fit_model(self, X, t, epsilon, num_passes=100000, print_loss=True):
         '''
         fit_model uses backpropagation to train the network
         :param X: input data
@@ -244,26 +240,18 @@ class n_layer_NN(object):
         :return:
         '''
 
-        prev_loss = None
-        prev_weight = None
-
         # Gradient descent implementation
         for i in range(0, num_passes+1):
 
             # Forward propagation
-            self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type))
+            self.ForwardPass(X, lambda x: self.actFun(x, self.actFun_type), False)
             # Backpropagation
             d_in_W, d_out_W, db2, dH, dHb = self.backwardPass(X, t)
 
-
-            prev_weight = self.in_W
             # Add regularization terms (b1 and b2 don't have regularization terms)
             d_out_W += self.reg_lambda * self.out_W
             d_in_W += self.reg_lambda * self.in_W
             dH += self.reg_lambda * self.hidden_W
-
-            # db2 += self.reg_lambda * self.out_B
-            # dHb += self.reg_lambda * self.hidden_B
 
             # Gradient descent parameter update
             self.hidden_W += -epsilon * dH
@@ -278,20 +266,10 @@ class n_layer_NN(object):
             if print_loss and i % 1000 == 0:
                 result = self.calculate_loss(X, t)
                 print("Loss after iteration %i: %f" % (i, result))
-                # if prev_loss != None: #and prev_loss - result < -0.000005:
-                #     print(prev_loss - result)
-                #     print(d_in_W)
-                #     # print(-epsilon * d_in_W)
-                #     # print(prev_weight)
-                #     print(d_out_W)
-                #     print(dH)
-                #     print(dHb)
-                #     print(db2)
-                prev_loss = result
                 self.losses.append(result)
         mean = np.mean(self.losses)
 
-        for i in range(0, 200):
+        for i in range(0, 569):
             print(str(self.probs[i]) + ", " + str(t[i]))
         return mean, self.losses
 
@@ -305,24 +283,32 @@ class n_layer_NN(object):
         plot_decision_boundary(lambda x: self.predict(x), X, y)
 
 
+def plot_losses(loss1, loss2, loss3):
+    plt.plot(loss1)
+    plt.plot(loss2)
+    plt.plot(loss3)
+    plt.plot(loss1, "ro", label="0.1")
+    plt.plot(loss2, "go", label="0.01")
+    plt.plot(loss3, "bo", label="0.001")
+    plt.legend()
+    plt.xlabel("Number of Iterations (in thousands)")
+    plt.ylabel("Error (using cross-entropy function)")
+    plt.show()
+
+def plot_losses_1(loss1):
+    plt.plot(loss1)
+    plt.plot(loss1, "ro", label="0.0001")
+    plt.legend()
+    plt.xlabel("Number of Iterations (in thousands)")
+    plt.ylabel("Error (using cross-entropy function)")
+    plt.show()
+
+
 def main():
     # # generate and visualize Make-Moons dataset
     np.random.seed(0)
     X, y = datasets.make_moons(200, noise=0.25)
-    # X, y = datasets.load_breast_cancer(return_X_y=True)
-
-    # t = np.zeros((len(y), 2))
-    # for i, val in np.ndenumerate(y):
-    #     if val == 0:
-    #         t[i, 0] = 0
-    #         t[i, 1] = 1
-    #     else:
-    #         t[i, 0] = 1
-    #         t[i, 1] = 0
-    # plt.scatter(X[:, 0], X[:, 1], s=45, c=y, cmap=plt.cm.plasma)
-    # plt.ylabel('x2')
-    # plt.xlabel('x1')
-    # plt.show()
+    X, y = datasets.load_breast_cancer(return_X_y=True)
 
     t = np.zeros((len(y), 2))
     for i, val in np.ndenumerate(y):
@@ -337,16 +323,29 @@ def main():
     plt.xlabel('x1')
     plt.show()
 
-    units = 5
+    units = 35
     layers = 3
     # act = "sigmoid"
     act = "tanh"
     # act = "relu"
-    model = n_layer_NN(num_hidden_layers = layers, input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
 
-    mean, loss = model.fit_model(X, t, 0.00001)
-    # means.append(mean)
+    # learning rate 1
+    model = n_layer_NN(num_hidden_layers = layers, input_layer=30, hidden_layer=units, output_layer=2, actFun_type=act)
+    mean1, loss1 = model.fit_model(X, t, 0.0001)
+
     # model.visualize_decision_boundary(X, y)
+
+    # # learning rate 2
+    # model = n_layer_NN(num_hidden_layers=layers, input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
+    # mean2, loss2 = model.fit_model(X, t, 0.01)
+    #
+    # # learning rate 3
+    # model = n_layer_NN(num_hidden_layers=layers, input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
+    # mean3, loss3 = model.fit_model(X, t, 0.001)
+
+    # means.append(mean)
+
+    plot_losses_1(loss1)
 
 
 if __name__ == "__main__":

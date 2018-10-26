@@ -124,12 +124,6 @@ class three_layer_NN(object):
         out = np.exp(z) * (1 / t)
         return out
 
-    def diff_softmax(self, z, i, j):
-        if(i == j):
-            return self.probs[i]*(1-self.probs[i])
-        else:
-            return -self.probs[j]*self.probs[i]
-
 
     def ForwardPass(self, X, actFun):
         '''
@@ -142,7 +136,6 @@ class three_layer_NN(object):
 
         # YOU IMPLEMENT YOUR ForwardPass HERE
         self.a1 = np.dot(X, self.W1) + self.b1
-        print(self.a1.shape)
         self.act1 = actFun(self.a1)
         self.a2 = np.dot(self.act1, self.W2) + self.b2
         self.probs = self.softmax(self.a2)
@@ -169,8 +162,6 @@ class three_layer_NN(object):
 
         data_loss = -(1/len(t))*data_loss
         return data_loss
-
-
 
     def predict(self, X):
         '''
@@ -209,7 +200,7 @@ class three_layer_NN(object):
 
         return dW1, dW2, db1, db2
 
-    def fit_model(self, X, t, epsilon, num_passes=15000, print_loss=True):
+    def fit_model(self, X, t, epsilon, num_passes=50000, print_loss=True):
         '''
         fit_model uses backpropagation to train the network
         :param X: input data
@@ -243,7 +234,6 @@ class three_layer_NN(object):
                 result = self.calculate_loss(X, t)
                 self.losses.append(result)
         mean = np.mean(self.losses)
-        print(self.probs)
 
         return mean, self.losses
 
@@ -256,7 +246,17 @@ class three_layer_NN(object):
         '''
         plot_decision_boundary(lambda x: self.predict(x), X, y)
 
-
+def plot_losses(loss1, loss2, loss3):
+    plt.plot(loss1)
+    plt.plot(loss2)
+    plt.plot(loss3)
+    plt.plot(loss1, "ro", label="0.01")
+    plt.plot(loss2, "go", label="0.001")
+    plt.plot(loss3, "bo", label="0.0001")
+    plt.legend()
+    plt.xlabel("Number of Iterations (in thousands)")
+    plt.ylabel("Error (using cross-entropy function)")
+    plt.show()
 
 def main():
     # # generate and visualize Make-Moons dataset
@@ -277,13 +277,24 @@ def main():
 
     units = 5
     # act = "sigmoid"
-    # act = "tanh"
-    act = "relu"
+    act = "tanh"
+    # act = "relu"
     model = three_layer_NN(input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
+    mean, loss1 = model.fit_model(X, t, 0.01)
 
-    # mean, loss = model.fit_model(X, t, 0.01)
-    # means.append(mean)
     model.visualize_decision_boundary(X, y)
+
+    model = three_layer_NN(input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
+    mean, loss2 = model.fit_model(X, t, 0.001)
+
+    model = three_layer_NN(input_layer=2, hidden_layer=units, output_layer=2, actFun_type=act)
+    mean, loss3 = model.fit_model(X, t, 0.0001)
+
+    plot_losses(loss1, loss2, loss3)
+
+
+    # means.append(mean)
+
 
 
 if __name__ == "__main__":
